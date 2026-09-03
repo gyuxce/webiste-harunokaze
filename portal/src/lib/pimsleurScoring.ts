@@ -17,6 +17,12 @@ export type PimsleurScoreBreakdown = {
   recommendation: string;
 };
 
+export type PimsleurResultMeta = {
+  label: string;
+  status: string;
+  recommendation: string;
+};
+
 /** Seksi 3: huruf A–H */
 const KEY_S3 = [
   "D", "F", "C", "G", "A", "H", "C", "E", "B", "F", "C", "H",
@@ -93,6 +99,20 @@ const GRADE_META: Record<
       "Peserta membutuhkan pendampingan lebih intensif dalam membangun fondasi bahasa sebelum lanjut tahap berikutnya.",
   },
 };
+
+export function getPimsleurResultMeta(
+  grade: string | null | undefined,
+): PimsleurResultMeta | null {
+  const normalized = grade?.trim().toUpperCase();
+  if (!normalized || !(normalized in GRADE_META)) return null;
+
+  const meta = GRADE_META[normalized as PimsleurGrade];
+  return {
+    label: meta.label,
+    status: meta.status,
+    recommendation: meta.recommendation,
+  };
+}
 
 export function gradeFromTotal(total: number): PimsleurGrade {
   if (total >= 90) return "A";

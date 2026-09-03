@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Award, Download } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { gradeFromTotal, getPimsleurResultMeta } from "../lib/pimsleurScoring";
 import { supabase } from "../lib/supabase";
 import type { Database } from "../lib/database.types";
 
@@ -92,6 +93,8 @@ export function ResultPage() {
     if (!certificate || !profile) return;
 
     const { downloadCertificatePdf } = await import("../lib/certificatePdf");
+    const pimsleurGrade = gradeFromTotal(certificate.score);
+    const pimsleurMeta = getPimsleurResultMeta(pimsleurGrade);
     await downloadCertificatePdf(
       {
         fullName: profile.full_name,
@@ -103,9 +106,10 @@ export function ResultPage() {
         papiHasil: null,
         papiCatatan: certificate.recommendation,
         pimsleurScore: certificate.score,
-        pimsleurGrade: null,
-        pimsleurStatusLabel: null,
-        pimsleurRecommendation: certificate.recommendation,
+        pimsleurGrade,
+        pimsleurLevelLabel: pimsleurMeta?.label ?? null,
+        pimsleurStatusLabel: pimsleurMeta?.status ?? null,
+        pimsleurRecommendation: pimsleurMeta?.recommendation ?? certificate.recommendation,
       },
       `sertifikat-pemetaan-${certificate.certificate_code}.pdf`,
     );

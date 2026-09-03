@@ -12,6 +12,7 @@ import {
 import { supabase } from "../lib/supabase";
 import { isAssessmentStaffRole, isPsychologistRole } from "../lib/access";
 import type { CertificateData } from "../lib/certificateHtml";
+import { getPimsleurResultMeta } from "../lib/pimsleurScoring";
 import type { Database } from "../lib/database.types";
 
 type CertificateRow = Pick<
@@ -107,7 +108,13 @@ function hasRecentActivity(row: RecapRow) {
 }
 
 function isComplete(row: RecapRow) {
-  return Boolean(row.pimsleur && row.cfit && row.papikostik);
+  return Boolean(
+    row.pimsleur &&
+      row.cfit &&
+      row.cfit.raw_total !== null &&
+      row.papikostik &&
+      row.papikostik.total_all !== null,
+  );
 }
 
 export function AdminRecapPage() {
@@ -206,7 +213,7 @@ export function AdminRecapPage() {
   };
 
   const handleDownloadCertificate = async (row: RecapRow) => {
-    if (!row.certificate || downloadingCertificateId) return;
+    if (!row.certificate || !isComplete(row) || downloadingCertificateId) return;
 
     setDownloadingCertificateId(row.userId);
     setError("");
@@ -221,6 +228,7 @@ export function AdminRecapPage() {
 
       const { downloadCertificatePdf } = await import("../lib/certificatePdf");
       const participantSummary = assessment.participant_summary ?? "";
+      const pimsleurMeta = getPimsleurResultMeta(assessment.pimsleur_grade);
       const payload: CertificateData = {
         fullName: assessment.full_name,
         certificateCode: row.certificate.certificate_code,
@@ -229,13 +237,14 @@ export function AdminRecapPage() {
         cfitIq: assessment.cfit_iq,
         cfitCategory: assessment.cfit_category,
         papiHasil: participantSummary
-          ? participantSummary.split("\n")[0].slice(0, 120)
+          ? participantSummary
           : "Telah direview psikolog dan disetujui admin",
         papiCatatan: participantSummary || null,
         pimsleurScore: assessment.pimsleur_score_total,
         pimsleurGrade: assessment.pimsleur_grade,
-        pimsleurStatusLabel: null,
-        pimsleurRecommendation: participantSummary || null,
+        pimsleurLevelLabel: pimsleurMeta?.label ?? null,
+        pimsleurStatusLabel: pimsleurMeta?.status ?? null,
+        pimsleurRecommendation: pimsleurMeta?.recommendation ?? null,
       };
       await downloadCertificatePdf(
         payload,
@@ -567,6 +576,7 @@ export function AdminRecapPage() {
                     <td className="border-l border-emerald-100 bg-emerald-50/20 px-3 py-3.5">
                       <CertificateStatus
                         certificate={row.certificate}
+                        complete={isComplete(row)}
                         downloading={downloadingCertificateId === row.userId}
                         onDownload={() => void handleDownloadCertificate(row)}
                       />
@@ -671,10 +681,12 @@ function DetailLink({ href, label }: { href: string | null; label: string }) {
 
 function CertificateStatus({
   certificate,
+  complete,
   downloading,
   onDownload,
 }: {
   certificate: CertificateRow | null;
+  complete: boolean;
   downloading: boolean;
   onDownload: () => void;
 }) {
@@ -682,6 +694,14 @@ function CertificateStatus({
     return (
       <span className="inline-flex rounded-full bg-brand-bg px-2 py-0.5 text-[10px] font-bold text-brand-navy/45">
         Belum terbit
+      </span>
+    );
+  }
+
+  if (!complete) {
+    return (
+      <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+        Perlu cek hasil
       </span>
     );
   }

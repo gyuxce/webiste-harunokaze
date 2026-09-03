@@ -36,6 +36,21 @@ Portal web calon siswa untuk daftar, bayar, tes, dan unduh sertifikat pemetaan p
    - `supabase/migrations/20260803000002_unify_papi_final_review.sql`
    - `supabase/migrations/20260803000003_final_review_narrative_source.sql`
    - `supabase/migrations/20260805000000_assessment_invoices.sql`
+   - `supabase/migrations/20260818000000_fixed_assessment_invoice_amount.sql`
+   - `supabase/migrations/20260818000001_fix_ensure_own_assessment_invoice_ambiguity.sql`
+   - `supabase/migrations/20260818000002_admin_payment_timestamps.sql`
+   - `supabase/migrations/20260818000003_psychologist_role_access.sql`
+   - `supabase/migrations/20260819000000_assessment_attempts.sql`
+   - `supabase/migrations/20260819000001_psychologist_review_queue.sql`
+   - `supabase/migrations/20260819000002_security_hardening.sql`
+   - `supabase/migrations/20260819000003_pivot_custom_invoice_amount.sql`
+   - `supabase/migrations/20260819000004_fix_assessment_attempt_start.sql`
+   - `supabase/migrations/20260819000005_fix_assessment_attempt_completion.sql`
+   - `supabase/migrations/20260819000006_fix_psychologist_review_save.sql`
+   - `supabase/migrations/20260819000007_psychologist_papi_notifications.sql`
+   - `supabase/migrations/20260819000008_admin_program_interest.sql`
+   - `supabase/migrations/20260820000000_psychologist_notification_email.sql`
+   - `supabase/migrations/20260903000000_certificate_quality_and_visibility.sql`
 
 Untuk admin: set `profiles.role = 'admin'` pada user staf.
 

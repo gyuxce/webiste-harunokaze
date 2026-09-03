@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, Award, Download, ExternalLink } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import type { CertificateData } from "../lib/certificateHtml";
+import { getPimsleurResultMeta } from "../lib/pimsleurScoring";
 import { LANDING_URL, supabase } from "../lib/supabase";
 import type { Database } from "../lib/database.types";
 
@@ -24,6 +25,7 @@ export function CertificatePage() {
   const [papi, setPapi] = useState<PapikostikStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notReady, setNotReady] = useState(false);
   const [downloadError, setDownloadError] = useState("");
   const [downloading, setDownloading] = useState(false);
 
@@ -36,6 +38,7 @@ export function CertificatePage() {
     }
 
     async function load() {
+      setNotReady(false);
       const [certificateRes, pimsleurRes, cfitRes, papiRes] = await Promise.all([
         supabase.from("certificates").select("*").eq("user_id", user!.id).maybeSingle(),
         supabase
@@ -63,10 +66,32 @@ export function CertificatePage() {
         return;
       }
 
+      const papiData = (papiRes.data?.[0] as PapikostikStatus | undefined) ?? null;
+      const certificateDataReady = Boolean(
+        certificateRes.data &&
+          pimsleurRes.data &&
+          pimsleurRes.data.score_total !== null &&
+          cfitRes.data &&
+          cfitRes.data.raw_total !== null &&
+          papiData?.total_all !== null &&
+          papiData?.review_status === "approved" &&
+          papiData.final_summary?.trim(),
+      );
+
+      if (!certificateDataReady) {
+        setCertificate(null);
+        setPimsleur(null);
+        setCfit(null);
+        setPapi(null);
+        setNotReady(true);
+        setLoading(false);
+        return;
+      }
+
       setCertificate(certificateRes.data);
       setPimsleur(pimsleurRes.data);
       setCfit(cfitRes.data);
-      setPapi((papiRes.data?.[0] as PapikostikStatus | undefined) ?? null);
+      setPapi(papiData);
       setLoading(false);
     }
 
@@ -88,13 +113,19 @@ export function CertificatePage() {
         cfitIq: cfit?.iq ?? null,
         cfitCategory: cfit?.category ?? null,
         papiHasil: papi?.final_summary
-          ? papi.final_summary.split("\n")[0].slice(0, 120)
+          ? papi.final_summary
           : "Telah direview psikolog dan disetujui admin",
         papiCatatan: papi?.final_summary ?? null,
         pimsleurScore: pimsleur?.score_total ?? null,
         pimsleurGrade: pimsleur?.grade ?? null,
-        pimsleurStatusLabel: pimsleur?.status_label ?? null,
-        pimsleurRecommendation: pimsleur?.recommendation ?? null,
+        pimsleurLevelLabel:
+          pimsleur?.grade_label || getPimsleurResultMeta(pimsleur?.grade)?.label || null,
+        pimsleurStatusLabel:
+          pimsleur?.status_label || getPimsleurResultMeta(pimsleur?.grade)?.status || null,
+        pimsleurRecommendation:
+          pimsleur?.recommendation ||
+          getPimsleurResultMeta(pimsleur?.grade)?.recommendation ||
+          null,
       };
       await downloadCertificatePdf(
         payload,
@@ -130,6 +161,24 @@ export function CertificatePage() {
     return (
       <div className="flex justify-center py-20">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-red border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (notReady) {
+    return (
+      <div className="mx-auto max-w-lg py-12 text-center">
+        <Award className="mx-auto text-brand-red" size={32} />
+        <h1 className="mt-4 font-display text-xl font-extrabold text-brand-navy">
+          Sertifikat sedang disiapkan
+        </h1>
+        <p className="mt-2 text-sm leading-relaxed text-brand-navy/55">
+          Sertifikat belum ditampilkan sampai seluruh hasil tes, narasi, dan persetujuan final
+          tersedia lengkap.
+        </p>
+        <Link to="/dashboard" className="mt-5 inline-block text-sm font-semibold text-brand-red">
+          Kembali ke dashboard
+        </Link>
       </div>
     );
   }
@@ -196,7 +245,7 @@ export function CertificatePage() {
           <p>
             <span className="font-bold text-brand-navy">PAPI:</span>{" "}
             {papi?.final_summary
-              ? papi.final_summary.split("\n")[0].slice(0, 100)
+              ? papi.final_summary
               : "Telah direview psikolog"}
           </p>
         </div>

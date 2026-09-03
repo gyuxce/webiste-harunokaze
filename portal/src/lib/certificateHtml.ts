@@ -1,5 +1,6 @@
 import type { CertificateAssetUrls } from "./certificateAssets";
 import { certificateNameFontSize } from "./certificateNameArt";
+import { getPimsleurResultMeta } from "./pimsleurScoring";
 
 export type CertificateData = {
   fullName: string;
@@ -15,6 +16,7 @@ export type CertificateData = {
   /** Pimsleur */
   pimsleurScore: number | null;
   pimsleurGrade: string | null;
+  pimsleurLevelLabel: string | null;
   pimsleurStatusLabel: string | null;
   pimsleurRecommendation: string | null;
 };
@@ -47,6 +49,13 @@ function splitTextIntoChunks(value: string, maxCharacters: number): string[] {
   return chunks;
 }
 
+function firstSentence(value: string): string {
+  const normalized = value.trim().replace(/\s+/g, " ");
+  if (!normalized) return "";
+
+  return normalized.match(/^.*?[.!?](?=\s|$)/)?.[0]?.trim() ?? normalized;
+}
+
 export function buildCertificateHtml(
   data: CertificateData,
   assets: CertificateAssetUrls,
@@ -64,7 +73,8 @@ export function buildCertificateHtml(
   const cfitSkor = data.cfitRawTotal !== null ? `${data.cfitRawTotal} / 50` : "-";
   const cfitIq = data.cfitIq !== null ? String(data.cfitIq) : "-";
   const cfitKat = esc(data.cfitCategory ?? "Belum tersedia");
-  const papiHasil = esc(data.papiHasil ?? "Menunggu review");
+  const papiSummary = data.papiHasil?.trim() || "Menunggu review";
+  const papiHasil = esc(firstSentence(papiSummary));
   const narrativeText = data.papiCatatan?.trim() || "Belum ada catatan psikolog.";
   const narrativeChunks =
     narrativeText.length > 900 ? splitTextIntoChunks(narrativeText, 2200) : [];
@@ -73,15 +83,22 @@ export function buildCertificateHtml(
       ? "Narasi lengkap dilanjutkan di halaman berikutnya."
       : narrativeText,
   );
+  const pimsleurMeta = getPimsleurResultMeta(data.pimsleurGrade);
   const pimsleurNilai =
     data.pimsleurScore !== null
       ? `${data.pimsleurScore}${data.pimsleurGrade ? ` / ${data.pimsleurGrade}` : ""}`
       : "-";
-  const pimsleurLevel = esc(data.pimsleurStatusLabel ?? "Belum tersedia");
+  const pimsleurLevel = esc(
+    data.pimsleurLevelLabel?.trim() ||
+      pimsleurMeta?.label ||
+      data.pimsleurStatusLabel?.trim() ||
+      pimsleurMeta?.status ||
+      "Belum tersedia",
+  );
   const pimsleurCatatan = esc(
-    narrativeChunks.length > 0
-      ? "Narasi lengkap dilanjutkan di halaman berikutnya."
-      : data.pimsleurRecommendation ?? "Belum ada catatan evaluasi.",
+    data.pimsleurRecommendation?.trim() ||
+      pimsleurMeta?.recommendation ||
+      "Belum ada catatan evaluasi.",
   );
   const nameFontSize = certificateNameFontSize(data.fullName);
 
@@ -287,6 +304,7 @@ export function buildCertificateHtml(
       color: rgba(15,34,64,0.78);
       line-height: 1.55;
       white-space: pre-wrap;
+      overflow-wrap: anywhere;
     }
     .page2-header {
       font-family: 'Outfit', sans-serif;

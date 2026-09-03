@@ -5,6 +5,7 @@ import { Link, Navigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { formatAdminDateTime } from "../lib/adminTools";
 import type { CertificateData } from "../lib/certificateHtml";
+import { getPimsleurResultMeta } from "../lib/pimsleurScoring";
 import { supabase } from "../lib/supabase";
 import type { Database } from "../lib/database.types";
 
@@ -235,6 +236,7 @@ export function AdminFinalReviewPage() {
     try {
       const { downloadCertificatePdf } = await import("../lib/certificatePdf");
       const participantSummary = assessment.participant_summary ?? "";
+      const pimsleurMeta = getPimsleurResultMeta(assessment.pimsleur_grade);
       const payload: CertificateData = {
         fullName: assessment.full_name,
         certificateCode: certificate.certificate_code,
@@ -243,13 +245,14 @@ export function AdminFinalReviewPage() {
         cfitIq: assessment.cfit_iq,
         cfitCategory: assessment.cfit_category,
         papiHasil: participantSummary
-          ? participantSummary.split("\n")[0].slice(0, 120)
+          ? participantSummary
           : "Telah direview psikolog dan disetujui admin",
         papiCatatan: participantSummary || null,
         pimsleurScore: assessment.pimsleur_score_total,
         pimsleurGrade: assessment.pimsleur_grade,
-        pimsleurStatusLabel: null,
-        pimsleurRecommendation: participantSummary || null,
+        pimsleurLevelLabel: pimsleurMeta?.label ?? null,
+        pimsleurStatusLabel: pimsleurMeta?.status ?? null,
+        pimsleurRecommendation: pimsleurMeta?.recommendation ?? null,
       };
       await downloadCertificatePdf(
         payload,
