@@ -3,6 +3,15 @@ import { Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { AuthLayout } from "../components/PortalLayout";
+import {
+  authEmailRedirectTo,
+  friendlyAuthEmailError,
+  normalizeEmail,
+  resendSignupVerification,
+  signupNeedsManualResend,
+} from "../lib/authEmail";
+
+const WHATSAPP_URL = "https://wa.me/message/DWVTJESHI2RQC1";
 
 const PROGRAMS = [
   "Pelatihan Bahasa & Karakter",
@@ -26,6 +35,9 @@ export function RegisterPage() {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [resendState, setResendState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [resendMessage, setResendMessage] = useState("");
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,11 +50,11 @@ export function RegisterPage() {
       return;
     }
 
-    const { error: authError } = await supabase.auth.signUp({
-      email: form.email,
+    const { data, error: authError } = await supabase.auth.signUp({
+      email: normalizeEmail(form.email),
       password: form.password,
       options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
+        emailRedirectTo: authEmailRedirectTo(),
         data: {
           full_name: form.fullName,
           whatsapp: form.whatsapp,
@@ -54,11 +66,25 @@ export function RegisterPage() {
     });
 
     if (authError) {
-      setError(authError.message);
+      setError(friendlyAuthEmailError(authError.message));
     } else {
+      setAlreadyRegistered(signupNeedsManualResend(data.user));
       setSuccess(true);
     }
     setLoading(false);
+  };
+
+  const handleResend = async () => {
+    setResendState("sending");
+    setResendMessage("");
+    const { error: resendError } = await resendSignupVerification(form.email);
+    if (resendError) {
+      setResendState("error");
+      setResendMessage(friendlyAuthEmailError(resendError.message));
+      return;
+    }
+    setResendState("sent");
+    setResendMessage("Link verifikasi baru sudah diminta. Cek inbox dan folder spam.");
   };
 
   if (success) {
@@ -67,15 +93,58 @@ export function RegisterPage() {
         <div className="rounded-2xl border border-brand-navy/8 bg-white p-8 shadow-sm text-center">
           <h1 className="font-display font-extrabold text-2xl text-brand-navy">Cek email kamu</h1>
           <p className="mt-3 text-sm text-brand-navy/60 leading-relaxed">
-            Kami sudah mengirim link verifikasi ke <strong>{form.email}</strong>. Setelah verifikasi,
-            kamu bisa masuk dan langsung membayar biaya pemetaan Rp99.000.
+            {alreadyRegistered ? (
+              <>
+                Email <strong>{form.email}</strong> sudah pernah didaftarkan, jadi link tidak dikirim
+                otomatis lagi. Kalau akun belum terverifikasi, kirim ulang di bawah. Kalau sudah
+                pernah verifikasi, langsung masuk.
+              </>
+            ) : (
+              <>
+                Kami sudah meminta link verifikasi ke <strong>{form.email}</strong>. Setelah
+                verifikasi, kamu bisa masuk dan membayar biaya pemetaan Rp99.000.
+              </>
+            )}
           </p>
+          <p className="mt-3 text-xs leading-relaxed text-brand-navy/45">
+            Cek folder <strong>Spam / Promosi / Updates</strong> juga. Email verifikasi kadang tidak
+            masuk Primary Gmail.
+          </p>
+
+          {resendMessage ? (
+            <p
+              className={`mt-4 rounded-lg px-3 py-2 text-sm ${
+                resendState === "error"
+                  ? "bg-brand-red-soft text-brand-red"
+                  : "bg-emerald-50 text-emerald-700"
+              }`}
+            >
+              {resendMessage}
+            </p>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => void handleResend()}
+            disabled={resendState === "sending"}
+            className="mt-5 w-full rounded-xl border border-brand-navy/12 bg-white px-6 py-3 text-sm font-bold text-brand-navy hover:border-brand-red/30 hover:text-brand-red disabled:opacity-60"
+          >
+            {resendState === "sending" ? "Mengirim ulang..." : "Kirim ulang email verifikasi"}
+          </button>
           <Link
             to="/login"
-            className="mt-6 inline-block rounded-xl bg-brand-navy text-white font-bold px-6 py-3 text-sm"
+            className="mt-3 inline-block rounded-xl bg-brand-navy px-6 py-3 text-sm font-bold text-white"
           >
             Ke halaman masuk
           </Link>
+          <a
+            href={WHATSAPP_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 block text-sm font-semibold text-brand-red hover:underline"
+          >
+            Email tidak masuk? Hubungi admin WhatsApp
+          </a>
         </div>
       </AuthLayout>
     );
