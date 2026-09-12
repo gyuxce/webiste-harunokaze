@@ -24,6 +24,7 @@ import { AdminPapikostikDetailPage } from "./pages/AdminPapikostikDetailPage";
 import { AdminRecapPage } from "./pages/AdminRecapPage";
 import { AdminFinalReviewPage } from "./pages/AdminFinalReviewPage";
 import { AdminPaymentsPage } from "./pages/AdminPaymentsPage";
+import { AdminTestProgressPage } from "./pages/AdminTestProgressPage";
 
 export default function App() {
   return (
@@ -68,6 +69,7 @@ export default function App() {
                 <Route path="/admin/papikostik/:userId" element={<AdminPapikostikDetailPage />} />
                 <Route path="/admin/recap" element={<AdminRecapPage />} />
                 <Route path="/admin/payments" element={<AdminPaymentsPage />} />
+                <Route path="/admin/test-progress" element={<AdminTestProgressPage />} />
                 <Route path="/admin/review/:userId" element={<AdminFinalReviewPage />} />
               </Route>
               <Route element={<RoleRoute allowedRoles={["psychologist"]} />}>

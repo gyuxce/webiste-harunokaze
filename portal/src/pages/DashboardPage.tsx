@@ -11,6 +11,7 @@ import {
   Mail,
   MessageCircle,
   ReceiptText,
+  RotateCcw,
   TestTube,
   Users,
 } from "lucide-react";
@@ -309,6 +310,24 @@ function AdminHome({ name }: { name: string }) {
             <p className="font-display text-lg font-bold text-brand-navy">Tagihan peserta</p>
             <p className="mt-1 text-sm text-brand-navy/50">
               Tetapkan nominal, jatuh tempo, dan pantau status pembayaran
+            </p>
+          </div>
+        </div>
+        <ArrowRight className="shrink-0 text-brand-red" size={20} />
+      </Link>
+
+      <Link
+        to="/admin/test-progress"
+        className="flex items-center justify-between gap-4 rounded-2xl border border-brand-navy/8 bg-white p-6 transition-all hover:border-brand-red/20 hover:shadow-md"
+      >
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-red-soft text-brand-red">
+            <RotateCcw size={24} />
+          </div>
+          <div>
+            <p className="font-display text-lg font-bold text-brand-navy">Progress tes peserta</p>
+            <p className="mt-1 text-sm text-brand-navy/50">
+              Pantau status 3 tes tiap peserta, reset tes yang macet di tengah jalan
             </p>
           </div>
         </div>

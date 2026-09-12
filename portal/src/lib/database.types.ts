@@ -609,6 +609,32 @@ export interface Database {
         };
         Returns: Database["public"]["Tables"]["assessment_invoices"]["Row"];
       };
+      admin_list_participant_test_progress: {
+        Args: Record<string, never>;
+        Returns: {
+          user_id: string;
+          full_name: string;
+          email: string | null;
+          whatsapp: string | null;
+          city: string | null;
+          payment_status: string;
+          language_test_status: string;
+          cfit_test_status: string;
+          papikostik_test_status: string;
+          papikostik_is_complete_pattern: boolean | null;
+        }[];
+      };
+      admin_reset_assessment_attempt: {
+        Args: {
+          p_user_id: string;
+          p_assessment_type: "pimsleur" | "cfit" | "papikostik";
+        };
+        Returns: undefined;
+      };
+      admin_reopen_papikostik_attempt: {
+        Args: { p_user_id: string };
+        Returns: undefined;
+      };
       ensure_own_assessment_invoice: {
         Args: Record<string, never>;
         Returns: {
