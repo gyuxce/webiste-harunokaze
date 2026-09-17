@@ -10,6 +10,21 @@ export function certificateNameFontSize(fullName: string): number {
   return nameLength > 32 ? 42 : nameLength > 24 ? 48 : 56;
 }
 
+/**
+ * Great Vibes is a script font whose capitals are decorative swashes meant
+ * for one letter per word, not a run of them — a name typed in ALL CAPS
+ * (common on Indonesian registration forms) renders as a broken, overlapping
+ * mess. Normalize to Title Case before it ever touches that font.
+ */
+export function formatCertificateName(fullName: string): string {
+  return fullName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
 async function loadGreatVibesFace(): Promise<FontFace> {
   if (!fontFacePromise) {
     fontFacePromise = (async () => {
@@ -92,7 +107,7 @@ export async function paintRecipientNameDataUrl(
   preferredSize: number,
 ): Promise<string> {
   await loadGreatVibesFace();
-  const text = fullName.trim() || "Peserta";
+  const text = formatCertificateName(fullName) || "Peserta";
   const width = Math.max(120, Math.round(cssWidth));
   const probe = document.createElement("canvas").getContext("2d");
   if (!probe) {

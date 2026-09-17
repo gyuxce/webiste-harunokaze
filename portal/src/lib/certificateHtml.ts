@@ -1,5 +1,5 @@
 import type { CertificateAssetUrls } from "./certificateAssets";
-import { certificateNameFontSize } from "./certificateNameArt";
+import { certificateNameFontSize, formatCertificateName } from "./certificateNameArt";
 import { getPimsleurResultMeta } from "./pimsleurScoring";
 
 export type CertificateData = {
@@ -68,7 +68,7 @@ export function buildCertificateHtml(
     minute: "2-digit",
   });
 
-  const name = esc(data.fullName);
+  const name = esc(formatCertificateName(data.fullName) || "Peserta");
   const code = esc(data.certificateCode);
   const cfitSkor = data.cfitRawTotal !== null ? `${data.cfitRawTotal} / 50` : "-";
   const cfitIq = data.cfitIq !== null ? String(data.cfitIq) : "-";
