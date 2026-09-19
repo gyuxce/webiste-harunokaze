@@ -83,8 +83,25 @@ SET default_transaction_read_only = off;
 | Masih error | Branch/pooler issue | Buat **project Supabase baru**, ulangi migration |
 
 4. Di **Authentication → URL Configuration**, tambahkan:
-   - Site URL: `http://localhost:5174`
-   - Redirect URLs: `http://localhost:5174/reset-password`
+   - Site URL: `https://portal.harunokaze.id` (lokal: `http://localhost:5174`)
+   - Redirect URLs:
+     - `https://portal.harunokaze.id/**`
+     - `https://portal.harunokaze.id/dashboard`
+     - `https://portal.harunokaze.id/reset-password`
+     - (lokal) `http://localhost:5174/**`
+
+5. **Email verifikasi pendaftaran** memakai SMTP Supabase Auth, bukan tombol UI saja.
+   Email default `noreply@mail.app.supabase.co` sering tidak masuk Gmail / masuk Spam.
+   Pakai Custom SMTP (Resend sudah dipakai untuk notifikasi PAPI):
+   - Authentication → SMTP Settings → Enable custom SMTP
+   - Host: `smtp.resend.com`
+   - Port: `465`
+   - User: `resend`
+   - Pass: `RESEND_API_KEY`
+   - Sender: alamat domain yang sudah diverifikasi di Resend, misalnya `noreply@harunokaze.id`
+
+Kalau SMTP belum custom, tombol **Kirim ulang** tetap memanggil Auth, tetapi Gmail bisa menolak
+emailnya. Cek juga Authentication → Users: status `Waiting for verification` vs sudah confirmed.
 
 #### Format soal legacy
 

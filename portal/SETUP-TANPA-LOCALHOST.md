@@ -41,10 +41,14 @@ VITE_PORTAL_URL=https://nama-portal.vercel.app
 
 | Field | Contoh |
 |-------|--------|
-| Site URL | `https://nama-portal.vercel.app` |
-| Redirect URLs | `https://nama-portal.vercel.app/reset-password` |
+| Site URL | `https://portal.harunokaze.id` |
+| Redirect URLs | `https://portal.harunokaze.id/**` dan `/reset-password` |
 
-**Email provider:** matikan **Confirm email** dulu untuk testing cepat.
+**Email verifikasi:** jangan andalkan SMTP default Supabase ke Gmail. Aktifkan Custom SMTP
+(Resend: `smtp.resend.com`, user `resend`, password API key).
+
+**Email provider:** matikan **Confirm email** hanya untuk testing cepat. Production tetap
+menyala, dengan SMTP custom.
 
 ---
 

@@ -3,6 +3,11 @@ import { Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { AuthLayout } from "../components/PortalLayout";
+import {
+  friendlyAuthEmailError,
+  isUnconfirmedEmailError,
+  resendSignupVerification,
+} from "../lib/authEmail";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -11,10 +16,15 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resendState, setResendState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [resendMessage, setResendMessage] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setNeedsVerification(false);
+    setResendMessage("");
     setLoading(true);
 
     if (!isSupabaseConfigured) {
@@ -24,11 +34,16 @@ export function LoginPage() {
     }
 
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim().toLowerCase(),
       password,
     });
     if (authError) {
-      setError(authError.message);
+      if (isUnconfirmedEmailError(authError.message, authError.code)) {
+        setNeedsVerification(true);
+        setError("Email belum diverifikasi. Cek inbox/spam, atau kirim ulang link di bawah.");
+      } else {
+        setError(authError.message);
+      }
     } else if (authData.user) {
       const { data: profile } = await supabase
         .from("profiles")
@@ -84,6 +99,42 @@ export function LoginPage() {
           {error && (
             <p className="text-sm text-brand-red bg-brand-red-soft rounded-lg px-3 py-2">{error}</p>
           )}
+
+          {needsVerification ? (
+            <div className="rounded-xl border border-brand-navy/8 bg-brand-bg p-4 text-left">
+              <p className="text-xs leading-relaxed text-brand-navy/55">
+                Cek folder Spam / Promosi. Kalau masih kosong, kirim ulang verifikasi ke {email}.
+              </p>
+              {resendMessage ? (
+                <p
+                  className={`mt-2 text-xs ${
+                    resendState === "error" ? "text-brand-red" : "text-emerald-700"
+                  }`}
+                >
+                  {resendMessage}
+                </p>
+              ) : null}
+              <button
+                type="button"
+                onClick={async () => {
+                  setResendState("sending");
+                  setResendMessage("");
+                  const { error: resendError } = await resendSignupVerification(email);
+                  if (resendError) {
+                    setResendState("error");
+                    setResendMessage(friendlyAuthEmailError(resendError.message));
+                    return;
+                  }
+                  setResendState("sent");
+                  setResendMessage("Link verifikasi baru sudah diminta. Cek inbox dan spam.");
+                }}
+                disabled={resendState === "sending" || !email}
+                className="mt-3 w-full rounded-lg border border-brand-navy/12 bg-white py-2.5 text-xs font-bold text-brand-navy hover:border-brand-red/30 hover:text-brand-red disabled:opacity-60"
+              >
+                {resendState === "sending" ? "Mengirim ulang..." : "Kirim ulang email verifikasi"}
+              </button>
+            </div>
+          ) : null}
 
           <button
             type="submit"
