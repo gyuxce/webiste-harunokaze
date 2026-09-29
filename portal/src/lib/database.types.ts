@@ -635,6 +635,39 @@ export interface Database {
         Args: { p_user_id: string };
         Returns: undefined;
       };
+      admin_update_participant_birth_date: {
+        Args: { p_user_id: string; p_birth_date: string };
+        Returns: undefined;
+      };
+      admin_recompute_cfit_result: {
+        Args: {
+          p_user_id: string;
+          p_iq: number;
+          p_category: string;
+          p_norm_code: string;
+          p_age_years: number;
+          p_age_months: number;
+        };
+        Returns: {
+          id: string;
+          user_id: string;
+          answers: Json;
+          raw_subtest1: number | null;
+          raw_subtest2: number | null;
+          raw_subtest3: number | null;
+          raw_subtest4: number | null;
+          raw_total: number | null;
+          iq: number | null;
+          category: string | null;
+          age_years: number | null;
+          age_months: number | null;
+          norm_code: string | null;
+          duration_seconds: number | null;
+          started_at: string;
+          completed_at: string;
+          created_at: string;
+        };
+      };
       ensure_own_assessment_invoice: {
         Args: Record<string, never>;
         Returns: {

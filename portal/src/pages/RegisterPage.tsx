@@ -3,6 +3,9 @@ import { Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { AuthLayout } from "../components/PortalLayout";
+import { birthDateRangeMessage, getBirthDateInputBounds, isBirthDateInRange } from "../lib/birthDate";
+
+const birthDateBounds = getBirthDateInputBounds();
 
 const PROGRAMS = [
   "Pelatihan Bahasa & Karakter",
@@ -34,6 +37,12 @@ export function RegisterPage() {
 
     if (!isSupabaseConfigured) {
       setError("Supabase belum dikonfigurasi. Isi file portal/.env terlebih dahulu.");
+      setLoading(false);
+      return;
+    }
+
+    if (!isBirthDateInRange(form.birthDate)) {
+      setError(birthDateRangeMessage());
       setLoading(false);
       return;
     }
@@ -144,6 +153,8 @@ export function RegisterPage() {
             <input
               type="date"
               required
+              min={birthDateBounds.min}
+              max={birthDateBounds.max}
               value={form.birthDate}
               onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
               className="rounded-xl border border-brand-navy/12 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-red/30"

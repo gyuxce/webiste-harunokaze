@@ -117,7 +117,18 @@ export function AdminCfitPage() {
                       {row.raw_subtest4 ?? 0}
                     </p>
                   </td>
-                  <td className="px-4 py-3 font-bold text-brand-navy">{getDisplayIq(row)}</td>
+                  <td
+                    className={`px-4 py-3 font-bold ${
+                      isIqMissing(row) ? "text-amber-600" : "text-brand-navy"
+                    }`}
+                  >
+                    {getDisplayIq(row)}
+                    {isIqMissing(row) && (
+                      <span className="ml-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                        Cek tgl lahir
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-xs text-brand-navy/65">
                     {getDisplayCategory(row)}
                   </td>
@@ -152,6 +163,10 @@ function formatAge(years: number | null, months: number | null) {
 
 function getDisplayIq(row: AdminCfitRow) {
   return row.iq ?? calculateCfitIqFromNorm(row.raw_total, row.norm_code).iq ?? "-";
+}
+
+function isIqMissing(row: AdminCfitRow) {
+  return row.raw_total !== null && getDisplayIq(row) === "-";
 }
 
 function getDisplayCategory(row: AdminCfitRow) {

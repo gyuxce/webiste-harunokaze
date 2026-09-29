@@ -13,6 +13,7 @@ import {
   type CfitQuestion,
 } from "../data/cfitQuestions";
 import { calculateCfitIq } from "../data/cfitScoring";
+import { birthDateRangeMessage, getBirthDateInputBounds, isBirthDateInRange } from "../lib/birthDate";
 import {
   advanceAssessmentAttempt,
   finishAssessmentAttempt,
@@ -29,6 +30,8 @@ function formatTime(totalSeconds: number) {
   const s = totalSeconds % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
+
+const birthDateBounds = getBirthDateInputBounds();
 
 function hasAnswer(question: CfitQuestion, answers: CfitAnswers) {
   const value = answers[question.id];
@@ -264,6 +267,11 @@ export function CfitTestPage() {
       return;
     }
 
+    if (!isBirthDateInRange(birthDate)) {
+      setError(birthDateRangeMessage());
+      return;
+    }
+
     setSubmitting(true);
     setAttemptLoading(true);
     setError("");
@@ -388,6 +396,8 @@ export function CfitTestPage() {
             <input
               type="date"
               required
+              min={birthDateBounds.min}
+              max={birthDateBounds.max}
               value={birthDate}
               onChange={(event) => setBirthDate(event.target.value)}
               className="rounded-xl border border-brand-navy/12 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-red/30"

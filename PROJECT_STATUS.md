@@ -2,6 +2,12 @@
 
 Tanggal audit: 2026-07-28
 
+> **Catatan (2026-09-29):** dokumen ini adalah snapshot Juli 2026 dan sudah basi di
+> beberapa bagian — paling penting, pembayaran sudah pindah dari **Midtrans ke Pivot
+> Payment** sejak migration `20260730000000_pivot_payment.sql`. Untuk setup dan status
+> yang akurat sekarang, pakai [`portal/README.md`](portal/README.md). Bagian di bawah
+> ini dibiarkan apa adanya sebagai catatan sejarah, bukan instruksi yang masih berlaku.
+
 ## Keputusan Database
 
 Pakai Supabase untuk fase ini.

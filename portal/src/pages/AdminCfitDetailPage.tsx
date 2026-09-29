@@ -8,10 +8,13 @@ import {
   CFIT_TOTAL_QUESTIONS,
   type CfitAnswerValue,
 } from "../data/cfitQuestions";
-import { calculateCfitIqFromNorm } from "../data/cfitScoring";
+import { calculateCfitIq, calculateCfitIqFromNorm } from "../data/cfitScoring";
 import { supabase } from "../lib/supabase";
 import { isAssessmentStaffRole, isPsychologistRole } from "../lib/access";
+import { birthDateRangeMessage, getBirthDateInputBounds, isBirthDateInRange } from "../lib/birthDate";
 import type { Json } from "../lib/database.types";
+
+const birthDateBounds = getBirthDateInputBounds();
 
 type CfitDetail = {
   id: string;
@@ -42,7 +45,12 @@ export function AdminCfitDetailPage() {
   const [row, setRow] = useState<CfitDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [correctedBirthDate, setCorrectedBirthDate] = useState("");
+  const [recomputing, setRecomputing] = useState(false);
+  const [recomputeError, setRecomputeError] = useState("");
+  const [recomputeMessage, setRecomputeMessage] = useState("");
   const listPath = isPsychologistRole(profile?.role) ? "/psychologist/cfit" : "/admin/cfit";
+  const canCorrectBirthDate = profile?.role === "admin";
 
   useEffect(() => {
     if (!userId || authLoading || !isAssessmentStaffRole(profile?.role)) return;
@@ -60,11 +68,71 @@ export function AdminCfitDetailPage() {
 
       const first = Array.isArray(data) ? data[0] : data;
       setRow((first as CfitDetail) ?? null);
+      setCorrectedBirthDate((first as CfitDetail | undefined)?.birth_date ?? "");
       setLoading(false);
     }
 
     void load();
   }, [userId, authLoading, profile?.role]);
+
+  async function correctBirthDateAndRecompute() {
+    if (!row) return;
+    setRecomputeError("");
+    setRecomputeMessage("");
+
+    if (!correctedBirthDate) {
+      setRecomputeError("Isi tanggal lahir yang benar terlebih dahulu.");
+      return;
+    }
+    if (!isBirthDateInRange(correctedBirthDate)) {
+      setRecomputeError(birthDateRangeMessage());
+      return;
+    }
+
+    setRecomputing(true);
+    try {
+      const { error: birthDateError } = await supabase.rpc("admin_update_participant_birth_date", {
+        p_user_id: row.user_id,
+        p_birth_date: correctedBirthDate,
+      });
+      if (birthDateError) throw new Error(birthDateError.message);
+
+      const recomputed = calculateCfitIq(row.raw_total, correctedBirthDate, new Date(row.completed_at));
+      if (recomputed.iq === null || !recomputed.normCode) {
+        throw new Error(
+          "Tanggal lahir baru masih menghasilkan usia di luar cakupan norma CFIT 3A (13-17+ tahun).",
+        );
+      }
+
+      const { data, error: recomputeErr } = await supabase.rpc("admin_recompute_cfit_result", {
+        p_user_id: row.user_id,
+        p_iq: recomputed.iq,
+        p_category: recomputed.category ?? "",
+        p_norm_code: recomputed.normCode,
+        p_age_years: recomputed.ageYears ?? 0,
+        p_age_months: recomputed.ageMonths ?? 0,
+      });
+      if (recomputeErr) throw new Error(recomputeErr.message);
+
+      const updated = Array.isArray(data) ? data[0] : data;
+      setRow({
+        ...row,
+        birth_date: correctedBirthDate,
+        iq: updated?.iq ?? recomputed.iq,
+        category: updated?.category ?? recomputed.category,
+        norm_code: updated?.norm_code ?? recomputed.normCode,
+        age_years: updated?.age_years ?? recomputed.ageYears,
+        age_months: updated?.age_months ?? recomputed.ageMonths,
+      });
+      setRecomputeMessage("Tanggal lahir dikoreksi dan IQ berhasil dihitung ulang.");
+    } catch (recomputeException) {
+      setRecomputeError(
+        recomputeException instanceof Error ? recomputeException.message : "Gagal menghitung ulang IQ.",
+      );
+    } finally {
+      setRecomputing(false);
+    }
+  }
 
   const answers = useMemo(
     () => ((row?.answers ?? {}) as Record<string, CfitAnswerValue>),
@@ -127,6 +195,48 @@ export function AdminCfitDetailPage() {
       <p className="mt-4 rounded-xl bg-brand-bg p-4 text-sm font-semibold text-brand-navy/75">
         {displayCategory ?? "Kategori belum tersedia"}
       </p>
+
+      {row.raw_total !== null && displayIq === null && (
+        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <p className="font-semibold">
+            IQ tidak bisa dihitung meski raw score ada. Ini biasanya karena tanggal lahir peserta salah
+            (usia di luar 13–17+ tahun yang dicakup norma CFIT 3A: {row.birth_date ?? "-"}).
+          </p>
+
+          {canCorrectBirthDate ? (
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-bold uppercase tracking-wide text-amber-700/80">
+                  Tanggal lahir yang benar
+                </span>
+                <input
+                  type="date"
+                  min={birthDateBounds.min}
+                  max={birthDateBounds.max}
+                  value={correctedBirthDate}
+                  onChange={(e) => setCorrectedBirthDate(e.target.value)}
+                  className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => void correctBirthDateAndRecompute()}
+                disabled={recomputing}
+                className="rounded-lg bg-amber-700 px-4 py-2 text-xs font-bold text-white hover:bg-amber-800 disabled:opacity-50"
+              >
+                {recomputing ? "Menghitung ulang..." : "Koreksi & hitung ulang IQ"}
+              </button>
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-amber-700/80">Hanya admin yang bisa mengoreksi tanggal lahir.</p>
+          )}
+
+          {recomputeError ? <p className="mt-2 text-xs font-semibold text-red-700">{recomputeError}</p> : null}
+          {recomputeMessage ? (
+            <p className="mt-2 text-xs font-semibold text-emerald-700">{recomputeMessage}</p>
+          ) : null}
+        </div>
+      )}
 
       <div className="mt-8 space-y-8">
         {CFIT_SUBTESTS.map((subtest) => (

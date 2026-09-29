@@ -91,6 +91,7 @@ export function AdminFinalReviewPage() {
       assessment?.papi_total_all !== null,
     [assessment],
   );
+  const cfitIqMissing = assessment?.cfit_raw_total !== null && assessment?.cfit_iq === null;
   const approved = assessment?.final_review_status === "approved";
 
   async function refineWithAi() {
@@ -323,6 +324,19 @@ export function AdminFinalReviewPage() {
       {!allTestsComplete ? (
         <div className="mt-6 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
           Sertifikat belum dapat diterbitkan karena belum semua tes memiliki hasil.
+        </div>
+      ) : null}
+
+      {cfitIqMissing ? (
+        <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <strong>IQ CFIT kosong walau raw score ada.</strong> Biasanya karena tanggal lahir peserta
+          salah input (usia di luar 13–17+ tahun yang dicakup norma CFIT 3A) — bukan karena tesnya
+          tidak selesai. Sertifikat tetap bisa diterbitkan, tapi kolom IQ-nya akan tampil kosong
+          sampai tanggal lahir dikoreksi dan hasil CFIT dihitung ulang. Cek di{" "}
+          <Link to={`/admin/cfit/${assessment.user_id}`} className="font-bold underline">
+            detail CFIT peserta ini
+          </Link>
+          .
         </div>
       ) : null}
 

@@ -15,7 +15,6 @@ Portal web calon siswa untuk daftar, bayar, tes, dan unduh sertifikat pemetaan p
 - PAPI Kostick: 90 soal forced-choice, scoring 20 faktor, status hasil peserta, dan admin detail + review psikolog/admin
 - Review final admin: interpretasi psikolog, narasi peserta hasil QC, persetujuan final, dan penerbitan sertifikat
 - AI refine draft: membuat draft narasi peserta dari interpretasi psikolog dan data tiga tes melalui OpenRouter. Draft tetap harus diperiksa dan disetujui admin.
-- Legacy sertifikat HTML masih ada di `/result/legacy`
 
 ## Setup
 
@@ -86,26 +85,13 @@ SET default_transaction_read_only = off;
    - Site URL: `http://localhost:5174`
    - Redirect URLs: `http://localhost:5174/reset-password`
 
-#### Format soal legacy
+#### Tabel `test_questions` (legacy, tidak dipakai)
 
-Tes Pimsleur, CFIT, dan PAPI Kostick sudah memakai data lokal di source code. Tabel
-`test_questions` hanya tersisa untuk flow legacy/generic.
-
-Contoh struktur data:
-
-```sql
-insert into public.test_questions
-  (test_type, question_text, options, correct_answer, order_index, active)
-values
-  (
-    'cfit',
-    'ISI_SOAL_RESMI_DI_SINI',
-    '[{"label":"A","value":"a"},{"label":"B","value":"b"},{"label":"C","value":"c"},{"label":"D","value":"d"}]'::jsonb,
-    'a',
-    1,
-    true
-  );
-```
+Tes Pimsleur, CFIT, dan PAPI Kostick sudah full memakai data lokal di source code
+(`src/data/*Questions.ts`). Tabel `test_questions` dan flow generik yang membacanya
+(`AssessmentTestPage`, `LanguageTestPage`, dll.) sudah dihapus dari frontend — tabelnya
+sendiri masih ada di database tapi tidak lagi dibaca kode mana pun. Aman untuk didrop
+lewat migration terpisah kalau mau beres-beres schema.
 
 Untuk PAPI Kostick, sistem menyimpan jawaban, skor faktor, interpretasi dasar, dan status review
 ke tabel `papikostik_results`.
