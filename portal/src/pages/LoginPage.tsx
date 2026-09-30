@@ -28,6 +28,13 @@ export function LoginPage() {
       password,
     });
     if (authError) {
+      const isUnconfirmed =
+        authError.code === "email_not_confirmed" || /email not confirmed/i.test(authError.message);
+      if (isUnconfirmed) {
+        navigate(`/verify-email?email=${encodeURIComponent(email)}`, { replace: true });
+        setLoading(false);
+        return;
+      }
       setError(authError.message);
     } else if (authData.user) {
       const { data: profile } = await supabase

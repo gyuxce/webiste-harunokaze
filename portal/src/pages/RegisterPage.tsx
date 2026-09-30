@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { AuthLayout } from "../components/PortalLayout";
 import { birthDateRangeMessage, getBirthDateInputBounds, isBirthDateInRange } from "../lib/birthDate";
@@ -16,6 +16,7 @@ const PROGRAMS = [
 ];
 
 export function RegisterPage() {
+  const navigate = useNavigate();
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -26,7 +27,6 @@ export function RegisterPage() {
     programInterest: PROGRAMS[0],
   });
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -64,31 +64,12 @@ export function RegisterPage() {
 
     if (authError) {
       setError(authError.message);
-    } else {
-      setSuccess(true);
+      setLoading(false);
+      return;
     }
-    setLoading(false);
-  };
 
-  if (success) {
-    return (
-      <AuthLayout>
-        <div className="rounded-2xl border border-brand-navy/8 bg-white p-8 shadow-sm text-center">
-          <h1 className="font-display font-extrabold text-2xl text-brand-navy">Cek email kamu</h1>
-          <p className="mt-3 text-sm text-brand-navy/60 leading-relaxed">
-            Kami sudah mengirim link verifikasi ke <strong>{form.email}</strong>. Setelah verifikasi,
-            kamu bisa masuk dan langsung membayar biaya pemetaan Rp99.000.
-          </p>
-          <Link
-            to="/login"
-            className="mt-6 inline-block rounded-xl bg-brand-navy text-white font-bold px-6 py-3 text-sm"
-          >
-            Ke halaman masuk
-          </Link>
-        </div>
-      </AuthLayout>
-    );
-  }
+    navigate(`/verify-email?email=${encodeURIComponent(form.email)}`, { replace: true });
+  };
 
   return (
     <AuthLayout>
