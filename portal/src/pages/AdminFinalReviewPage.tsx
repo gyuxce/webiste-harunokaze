@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { ArrowLeft, Award, CheckCircle2, Download, Save, Sparkles } from "lucide-react";
+import { ArrowLeft, Award, CheckCircle2, Download, Pencil, Save, Sparkles, X } from "lucide-react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { formatAdminDateTime } from "../lib/adminTools";
@@ -45,6 +45,7 @@ export function AdminFinalReviewPage() {
   const [publishing, setPublishing] = useState(false);
   const [downloadingCertificate, setDownloadingCertificate] = useState(false);
   const [publishConfirmationOpen, setPublishConfirmationOpen] = useState(false);
+  const [editingAfterApproval, setEditingAfterApproval] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -93,6 +94,7 @@ export function AdminFinalReviewPage() {
   );
   const cfitIqMissing = assessment?.cfit_raw_total !== null && assessment?.cfit_iq === null;
   const approved = assessment?.final_review_status === "approved";
+  const narrativeEditable = !approved || editingAfterApproval;
 
   async function refineWithAi() {
     if (!userId || !assessment) return;
@@ -168,6 +170,16 @@ export function AdminFinalReviewPage() {
     });
     setMessage("Draft review berhasil disimpan.");
     setSaving(false);
+    setEditingAfterApproval(false);
+  }
+
+  function cancelNarrativeEdit() {
+    if (!assessment) return;
+    setParticipantSummary(assessment.participant_summary ?? "");
+    setQcNotes(assessment.qc_notes ?? "");
+    setEditingAfterApproval(false);
+    setError("");
+    setMessage("");
   }
 
   function requestPublish() {
@@ -361,25 +373,28 @@ export function AdminFinalReviewPage() {
           value={participantSummary}
           onChange={setParticipantSummary}
           placeholder="Tulis ulang dengan bahasa yang konsultatif, jelas, dan sesuai untuk peserta."
-          disabled={false}
+          disabled={!narrativeEditable}
           action={
-            <button
-              type="button"
-              onClick={() => void refineWithAi()}
-              disabled={refining || saving || publishing || !allTestsComplete}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-navy px-3 py-1.5 text-[11px] font-bold text-white hover:bg-brand-navy-light disabled:opacity-50"
-            >
-              <Sparkles size={14} />
-              {refining ? "Menyusun..." : "Refine dengan AI"}
-            </button>
+            narrativeEditable ? (
+              <button
+                type="button"
+                onClick={() => void refineWithAi()}
+                disabled={refining || saving || publishing || !allTestsComplete}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-navy px-3 py-1.5 text-[11px] font-bold text-white hover:bg-brand-navy-light disabled:opacity-50"
+              >
+                <Sparkles size={14} />
+                {refining ? "Menyusun..." : "Refine dengan AI"}
+              </button>
+            ) : null
           }
         />
       </div>
 
       {approved ? (
         <p className="mt-3 text-xs text-brand-navy/50">
-          Sertifikat sudah terbit, tapi narasi ini masih bisa dikoreksi — peserta dan PDF sertifikat
-          selalu menampilkan versi terbaru yang tersimpan di sini, tanpa perlu menerbitkan ulang.
+          {editingAfterApproval
+            ? "Mode edit aktif — simpan untuk mengunci lagi, atau batalkan untuk membuang perubahan."
+            : "Sertifikat sudah terbit. Narasi terkunci secara default; klik \"Edit narasi\" di bawah kalau perlu dikoreksi."}
         </p>
       ) : null}
 
@@ -389,7 +404,7 @@ export function AdminFinalReviewPage() {
           value={qcNotes}
           onChange={setQcNotes}
           placeholder="Catatan perubahan, pengecekan, atau alasan persetujuan internal."
-          disabled={false}
+          disabled={!narrativeEditable}
         />
       </div>
 
@@ -442,14 +457,34 @@ export function AdminFinalReviewPage() {
                 </button>
               ) : null}
             </div>
-            <button
-              type="button"
-              onClick={() => void saveDraft()}
-              disabled={saving || refining}
-              className="inline-flex items-center gap-2 rounded-xl border border-brand-navy/15 px-5 py-3 text-sm font-bold text-brand-navy disabled:opacity-50"
-            >
-              <Save size={18} /> {saving ? "Menyimpan..." : "Simpan perubahan narasi"}
-            </button>
+            {editingAfterApproval ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void saveDraft()}
+                  disabled={saving || refining}
+                  className="inline-flex items-center gap-2 rounded-xl bg-brand-red px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
+                >
+                  <Save size={18} /> {saving ? "Menyimpan..." : "Simpan & kunci lagi"}
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelNarrativeEdit}
+                  disabled={saving || refining}
+                  className="inline-flex items-center gap-2 rounded-xl border border-brand-navy/15 px-5 py-3 text-sm font-bold text-brand-navy disabled:opacity-50"
+                >
+                  <X size={18} /> Batal
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setEditingAfterApproval(true)}
+                className="inline-flex items-center gap-2 rounded-xl border border-brand-navy/15 px-5 py-3 text-sm font-bold text-brand-navy"
+              >
+                <Pencil size={18} /> Edit narasi
+              </button>
+            )}
           </>
         )}
       </div>
