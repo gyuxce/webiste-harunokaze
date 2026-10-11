@@ -348,14 +348,12 @@ export function AdminFinalReviewPage() {
           placeholder="Isi interpretasi psikolog melalui detail PAPI terlebih dahulu."
           disabled
           action={
-            !approved ? (
-              <Link
-                to={`/admin/papikostik/${assessment.user_id}`}
-                className="text-[11px] font-bold normal-case text-brand-red hover:underline"
-              >
-                Edit di PAPI
-              </Link>
-            ) : null
+            <Link
+              to={`/admin/papikostik/${assessment.user_id}`}
+              className="text-[11px] font-bold normal-case text-brand-red hover:underline"
+            >
+              Edit di PAPI
+            </Link>
           }
         />
         <ReviewField
@@ -363,22 +361,27 @@ export function AdminFinalReviewPage() {
           value={participantSummary}
           onChange={setParticipantSummary}
           placeholder="Tulis ulang dengan bahasa yang konsultatif, jelas, dan sesuai untuk peserta."
-          disabled={approved}
+          disabled={false}
           action={
-            !approved ? (
-              <button
-                type="button"
-                onClick={() => void refineWithAi()}
-                disabled={refining || saving || publishing || !allTestsComplete}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-navy px-3 py-1.5 text-[11px] font-bold text-white hover:bg-brand-navy-light disabled:opacity-50"
-              >
-                <Sparkles size={14} />
-                {refining ? "Menyusun..." : "Refine dengan AI"}
-              </button>
-            ) : null
+            <button
+              type="button"
+              onClick={() => void refineWithAi()}
+              disabled={refining || saving || publishing || !allTestsComplete}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-navy px-3 py-1.5 text-[11px] font-bold text-white hover:bg-brand-navy-light disabled:opacity-50"
+            >
+              <Sparkles size={14} />
+              {refining ? "Menyusun..." : "Refine dengan AI"}
+            </button>
           }
         />
       </div>
+
+      {approved ? (
+        <p className="mt-3 text-xs text-brand-navy/50">
+          Sertifikat sudah terbit, tapi narasi ini masih bisa dikoreksi — peserta dan PDF sertifikat
+          selalu menampilkan versi terbaru yang tersimpan di sini, tanpa perlu menerbitkan ulang.
+        </p>
+      ) : null}
 
       <div className="mt-6">
         <ReviewField
@@ -386,7 +389,7 @@ export function AdminFinalReviewPage() {
           value={qcNotes}
           onChange={setQcNotes}
           placeholder="Catatan perubahan, pengecekan, atau alasan persetujuan internal."
-          disabled={approved}
+          disabled={false}
         />
       </div>
 
@@ -415,29 +418,39 @@ export function AdminFinalReviewPage() {
             </button>
           </>
         ) : (
-          <div className="flex flex-wrap items-center gap-3 rounded-xl bg-emerald-50 px-5 py-3 text-sm text-emerald-800">
-            <div>
-              <p className="inline-flex items-center gap-2 font-bold text-emerald-700">
-                <Award size={18} /> Sertifikat {certificate?.certificate_code ?? assessment.certificate_code ?? "sudah diterbitkan"}
-              </p>
-              {certificate ? (
-                <p className="mt-1 text-xs text-emerald-700/75">
-                  Diterbitkan {formatAdminDateTime(certificate.issued_at)} WIB
+          <>
+            <div className="flex flex-wrap items-center gap-3 rounded-xl bg-emerald-50 px-5 py-3 text-sm text-emerald-800">
+              <div>
+                <p className="inline-flex items-center gap-2 font-bold text-emerald-700">
+                  <Award size={18} /> Sertifikat {certificate?.certificate_code ?? assessment.certificate_code ?? "sudah diterbitkan"}
                 </p>
+                {certificate ? (
+                  <p className="mt-1 text-xs text-emerald-700/75">
+                    Diterbitkan {formatAdminDateTime(certificate.issued_at)} WIB
+                  </p>
+                ) : null}
+              </div>
+              {certificate ? (
+                <button
+                  type="button"
+                  onClick={() => void downloadCertificate()}
+                  disabled={downloadingCertificate}
+                  className="inline-flex items-center gap-2 rounded-lg border border-emerald-700/25 bg-white px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+                >
+                  <Download size={15} />
+                  {downloadingCertificate ? "Menyiapkan PDF..." : "Unduh PDF"}
+                </button>
               ) : null}
             </div>
-            {certificate ? (
-              <button
-                type="button"
-                onClick={() => void downloadCertificate()}
-                disabled={downloadingCertificate}
-                className="inline-flex items-center gap-2 rounded-lg border border-emerald-700/25 bg-white px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
-              >
-                <Download size={15} />
-                {downloadingCertificate ? "Menyiapkan PDF..." : "Unduh PDF"}
-              </button>
-            ) : null}
-          </div>
+            <button
+              type="button"
+              onClick={() => void saveDraft()}
+              disabled={saving || refining}
+              className="inline-flex items-center gap-2 rounded-xl border border-brand-navy/15 px-5 py-3 text-sm font-bold text-brand-navy disabled:opacity-50"
+            >
+              <Save size={18} /> {saving ? "Menyimpan..." : "Simpan perubahan narasi"}
+            </button>
+          </>
         )}
       </div>
 
