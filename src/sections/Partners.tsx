@@ -3,6 +3,17 @@ import { SectionHeading } from "../components/SectionHeading";
 import { Reveal } from "../components/Reveal";
 import { partners } from "../data/content";
 import trustImg from "../assets/images/partners-trust.jpg";
+import logoWiwitan from "../assets/images/partners/partner-wiwitan.png";
+import logoIjbAcademy from "../assets/images/partners/partner-ijb-academy.png";
+import logoKasugaFarm from "../assets/images/solo-kfi/logo-kasuga-farm.png";
+import logoAkiNoSora from "../assets/images/partners/partner-aki-no-sora.png";
+
+const partnerLogos: Record<string, string> = {
+  "partner-wiwitan": logoWiwitan,
+  "partner-ijb-academy": logoIjbAcademy,
+  "partner-kasuga-farm": logoKasugaFarm,
+  "partner-aki-no-sora": logoAkiNoSora,
+};
 
 export function Partners() {
   return (
@@ -11,7 +22,7 @@ export function Partners() {
         <SectionHeading
           eyebrow="Partner & Legalitas"
           title="Berjalan bersama mitra resmi"
-          description="Logo dan detail mitra ditampilkan setelah proses verifikasi kerja sama selesai difinalisasi oleh tim legal."
+          description="Harunokaze bekerja sama dengan lembaga pelatihan, akademi bahasa, dan mitra penempatan yang terdaftar resmi di Indonesia maupun Jepang."
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-8 items-stretch">
@@ -31,15 +42,26 @@ export function Partners() {
 
           <div className="flex flex-col gap-6">
             <Reveal delay={0.05}>
-              <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-brand-navy/8 bg-brand-bg px-7 py-6">
-                {partners.map((partner) => (
-                  <span
-                    key={partner}
-                    className="text-xs font-semibold text-brand-navy/55 border border-dashed border-brand-navy/20 rounded-full px-4 py-2"
-                  >
-                    {partner}
-                  </span>
-                ))}
+              <div className="rounded-2xl border border-brand-navy/8 bg-brand-bg px-7 py-7">
+                <p className="mb-5 text-xs font-bold uppercase tracking-wider text-brand-navy/40">
+                  Mitra Resmi Kami
+                </p>
+                <div className="flex flex-wrap items-center gap-4">
+                  {partners.map((partner) => (
+                    <div
+                      key={partner.name}
+                      className="flex h-16 items-center justify-center rounded-xl border border-brand-navy/5 bg-white px-5 py-3 shadow-sm"
+                    >
+                      <img
+                        src={partnerLogos[partner.logo]}
+                        alt={partner.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full max-h-9 w-auto object-contain"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             </Reveal>
 

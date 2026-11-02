@@ -234,11 +234,10 @@ export const whyUsPillars = [
 ];
 
 export const partners = [
-  "Mitra Pendidikan Jepang",
-  "Mitra Penempatan Kerja",
-  "Lembaga Pelatihan Bahasa",
-  "Mitra Kesehatan & Perawatan",
-  "Instansi Pemerintah Terkait",
+  { name: "LPK & SO Wiwitan Baru", logo: "partner-wiwitan" },
+  { name: "IJB Academy", logo: "partner-ijb-academy" },
+  { name: "Kasuga Farm", logo: "partner-kasuga-farm" },
+  { name: "Aki No Sora", logo: "partner-aki-no-sora" },
 ];
 
 export const alumniStories = [
