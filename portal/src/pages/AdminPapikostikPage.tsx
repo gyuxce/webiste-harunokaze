@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link, Navigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Clock3, RefreshCw, Search } from "lucide-react";
+import { Link, Navigate, useLocation } from "react-router-dom";
+import { ArrowLeft, CheckCircle2, Clock3, Loader2, PlayCircle, RefreshCw, Search, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 import { isAssessmentStaffRole, isPsychologistRole } from "../lib/access";
@@ -27,6 +27,7 @@ type AdminPapikostikRow = {
 type QueueFilter = "all" | "pending" | "reviewed";
 
 export function AdminPapikostikPage() {
+  const location = useLocation();
   const { profile, loading: authLoading } = useAuth();
   const [rows, setRows] = useState<AdminPapikostikRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +36,10 @@ export function AdminPapikostikPage() {
   const [queueFilter, setQueueFilter] = useState<QueueFilter>("all");
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [reopenTarget, setReopenTarget] = useState<AdminPapikostikRow | null>(null);
+  const [reopenError, setReopenError] = useState("");
+  const [reopening, setReopening] = useState(false);
+  const [notice, setNotice] = useState("");
   const isPsychologist = isPsychologistRole(profile?.role);
   const detailBasePath = isPsychologist
     ? "/psychologist/papikostik"
@@ -64,10 +69,45 @@ export function AdminPapikostikPage() {
     void loadRows();
   }, [authLoading, isPsychologist, loadRows, profile?.role]);
 
+  useEffect(() => {
+    const state = location.state as { notice?: string } | null;
+    if (state?.notice) {
+      setNotice(state.notice);
+      window.history.replaceState({}, "");
+    }
+  }, [location.state]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadRows(false);
     setRefreshing(false);
+  };
+
+  const closeReopen = () => {
+    if (reopening) return;
+    setReopenTarget(null);
+    setReopenError("");
+  };
+
+  const handleReopen = async () => {
+    if (!reopenTarget) return;
+    setReopening(true);
+    setReopenError("");
+
+    const { error: reopenErrorResponse } = await supabase.rpc("admin_reopen_papikostik_attempt", {
+      p_user_id: reopenTarget.user_id,
+    });
+
+    if (reopenErrorResponse) {
+      setReopenError(reopenErrorResponse.message);
+      setReopening(false);
+      return;
+    }
+
+    setReopening(false);
+    setNotice(`Tes PAPI Kostick untuk ${reopenTarget.full_name} dibuka lagi, jawaban lama dipertahankan.`);
+    setReopenTarget(null);
+    await loadRows(false);
   };
 
   const filteredRows = useMemo(() => {
@@ -183,6 +223,12 @@ export function AdminPapikostikPage() {
         </p>
       ) : null}
 
+      {notice ? (
+        <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+          <CheckCircle2 size={18} /> {notice}
+        </div>
+      ) : null}
+
       {loading || authLoading ? (
         <div className="flex justify-center py-16">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-red border-t-transparent" />
@@ -234,15 +280,30 @@ export function AdminPapikostikPage() {
                     </p>
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                        row.is_complete_pattern
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-red-50 text-red-700"
-                      }`}
-                    >
-                      {row.is_complete_pattern ? "Lengkap" : "Cek jawaban"}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                          row.is_complete_pattern
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-red-50 text-red-700"
+                        }`}
+                      >
+                        {row.is_complete_pattern ? "Lengkap" : "Cek jawaban"}
+                      </span>
+                      {!row.is_complete_pattern && !isPsychologist ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReopenTarget(row);
+                            setReopenError("");
+                          }}
+                          title="Waktu habis sebelum semua soal terjawab"
+                          className="inline-flex items-center gap-1 rounded-full border border-brand-navy/12 px-2.5 py-1 text-[11px] font-bold text-brand-navy/65 hover:border-brand-red/40 hover:text-brand-red"
+                        >
+                          <PlayCircle size={12} /> Lanjutkan tes
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <span
@@ -277,6 +338,70 @@ export function AdminPapikostikPage() {
           </table>
         </div>
       )}
+
+      {reopenTarget ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-brand-navy/35 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reopen-dialog-title"
+        >
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase text-brand-red">Lanjutkan tes</p>
+                <h2 id="reopen-dialog-title" className="mt-1 font-display text-xl font-extrabold text-brand-navy">
+                  PAPI Kostick
+                </h2>
+                <p className="mt-1 text-sm text-brand-navy/60">{reopenTarget.full_name}</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeReopen}
+                disabled={reopening}
+                title="Tutup"
+                aria-label="Tutup"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-brand-navy/45 hover:bg-brand-bg hover:text-brand-navy disabled:opacity-40"
+              >
+                <X size={19} />
+              </button>
+            </div>
+
+            <p className="mt-5 rounded-lg bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+              Waktu habis sebelum peserta ini selesai. Jawaban yang sudah diisi tetap dipertahankan.
+              Peserta bisa lanjut mengerjakan sisa soal kapan saja setelah ini — hitungan waktu baru
+              mulai jalan saat dia benar-benar membuka soalnya lagi, bukan dari sekarang. Hasil lama
+              yang belum lengkap akan dihapus supaya hasil barunya tersimpan bersih.
+            </p>
+
+            {reopenError ? (
+              <p className="mt-3 rounded-lg bg-brand-red-soft px-3 py-2 text-sm text-brand-red">
+                {reopenError}
+              </p>
+            ) : null}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeReopen}
+                disabled={reopening}
+                className="rounded-lg border border-brand-navy/12 px-4 py-2.5 text-sm font-bold text-brand-navy hover:bg-brand-bg disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleReopen()}
+                disabled={reopening}
+                className="inline-flex min-w-28 items-center justify-center gap-2 rounded-lg bg-brand-red px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-red-hover disabled:opacity-50"
+              >
+                {reopening ? <Loader2 className="animate-spin" size={16} /> : <PlayCircle size={16} />}
+                {reopening ? "Memproses..." : "Lanjutkan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

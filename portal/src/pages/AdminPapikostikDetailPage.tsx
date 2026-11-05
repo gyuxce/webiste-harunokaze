@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Pencil, Save, X } from "lucide-react";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, CheckCircle2, Loader2, Pencil, PlayCircle, Save, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { isAssessmentStaffRole, isPsychologistRole } from "../lib/access";
 import {
@@ -42,6 +42,7 @@ const ASPECTS = ["Arah kerja", "Kepemimpinan", "Aktivitas", "Pergaulan", "Gaya k
 
 export function AdminPapikostikDetailPage() {
   const { userId } = useParams<{ userId: string }>();
+  const navigate = useNavigate();
   const { profile, loading: authLoading } = useAuth();
   const [row, setRow] = useState<PapikostikDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,6 +51,10 @@ export function AdminPapikostikDetailPage() {
   const [saveMessage, setSaveMessage] = useState("");
   const [notes, setNotes] = useState("");
   const [editingNotes, setEditingNotes] = useState(false);
+  const [reopenOpen, setReopenOpen] = useState(false);
+  const [reopenError, setReopenError] = useState("");
+  const [reopening, setReopening] = useState(false);
+  const isAdmin = profile?.role === "admin";
   const listPath = isPsychologistRole(profile?.role)
     ? "/psychologist/papikostik"
     : "/admin/papikostik";
@@ -143,6 +148,27 @@ export function AdminPapikostikDetailPage() {
     setSaveMessage("");
   }
 
+  async function handleReopen() {
+    if (!row) return;
+    setReopening(true);
+    setReopenError("");
+
+    const { error: reopenErrorResponse } = await supabase.rpc("admin_reopen_papikostik_attempt", {
+      p_user_id: row.user_id,
+    });
+
+    if (reopenErrorResponse) {
+      setReopenError(reopenErrorResponse.message);
+      setReopening(false);
+      return;
+    }
+
+    navigate(listPath, {
+      replace: true,
+      state: { notice: `Tes PAPI Kostick untuk ${row.full_name} dibuka lagi, jawaban lama dipertahankan.` },
+    });
+  }
+
   if (!authLoading && !isAssessmentStaffRole(profile?.role)) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -206,10 +232,24 @@ export function AdminPapikostikDetailPage() {
       </div>
 
       {!row.is_complete_pattern ? (
-        <p className="mt-4 rounded-xl bg-red-50 p-4 text-sm font-semibold text-red-700">
-          Pola total tidak 45/45. Cek kemungkinan data jawaban belum lengkap atau mapping perlu
-          diverifikasi.
-        </p>
+        <div className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-700">
+          <p className="font-semibold">
+            Pola total tidak 45/45. Biasanya karena waktu habis sebelum peserta menjawab semua
+            soal, bukan error data.
+          </p>
+          {isAdmin ? (
+            <button
+              type="button"
+              onClick={() => {
+                setReopenOpen(true);
+                setReopenError("");
+              }}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100"
+            >
+              <PlayCircle size={14} /> Lanjutkan tes
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="mt-8">
@@ -357,6 +397,77 @@ export function AdminPapikostikDetailPage() {
           </table>
         </div>
       </section>
+
+      {reopenOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-brand-navy/35 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reopen-dialog-title"
+        >
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase text-brand-red">Lanjutkan tes</p>
+                <h2 id="reopen-dialog-title" className="mt-1 font-display text-xl font-extrabold text-brand-navy">
+                  PAPI Kostick
+                </h2>
+                <p className="mt-1 text-sm text-brand-navy/60">{row.full_name}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (reopening) return;
+                  setReopenOpen(false);
+                  setReopenError("");
+                }}
+                disabled={reopening}
+                title="Tutup"
+                aria-label="Tutup"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-brand-navy/45 hover:bg-brand-bg hover:text-brand-navy disabled:opacity-40"
+              >
+                <X size={19} />
+              </button>
+            </div>
+
+            <p className="mt-5 rounded-lg bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+              Waktu habis sebelum peserta ini selesai. Jawaban yang sudah diisi tetap dipertahankan.
+              Peserta bisa lanjut mengerjakan sisa soal kapan saja setelah ini — hitungan waktu baru
+              mulai jalan saat dia benar-benar membuka soalnya lagi, bukan dari sekarang. Hasil lama
+              yang belum lengkap akan dihapus supaya hasil barunya tersimpan bersih.
+            </p>
+
+            {reopenError ? (
+              <p className="mt-3 rounded-lg bg-brand-red-soft px-3 py-2 text-sm text-brand-red">
+                {reopenError}
+              </p>
+            ) : null}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setReopenOpen(false);
+                  setReopenError("");
+                }}
+                disabled={reopening}
+                className="rounded-lg border border-brand-navy/12 px-4 py-2.5 text-sm font-bold text-brand-navy hover:bg-brand-bg disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleReopen()}
+                disabled={reopening}
+                className="inline-flex min-w-28 items-center justify-center gap-2 rounded-lg bg-brand-red px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-red-hover disabled:opacity-50"
+              >
+                {reopening ? <Loader2 className="animate-spin" size={16} /> : <PlayCircle size={16} />}
+                {reopening ? "Memproses..." : "Lanjutkan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
