@@ -47,7 +47,7 @@ export function RegisterPage() {
       return;
     }
 
-    const { error: authError } = await supabase.auth.signUp({
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: {
@@ -64,6 +64,19 @@ export function RegisterPage() {
 
     if (authError) {
       setError(authError.message);
+      setLoading(false);
+      return;
+    }
+
+    // Supabase doesn't surface "email already registered" as an error (it would let
+    // attackers enumerate accounts) — instead it silently returns a user with no
+    // identities when the email already exists and is confirmed, and sends no email.
+    // Without this check, the form would send someone on to "check your email" for a
+    // mail that will never arrive, which looks exactly like the delivery bug it isn't.
+    if (authData.user && authData.user.identities && authData.user.identities.length === 0) {
+      setError(
+        "Email ini sudah terdaftar dan sudah terverifikasi. Gunakan email lain untuk daftar, atau masuk lewat halaman Masuk kalau ini akunmu.",
+      );
       setLoading(false);
       return;
     }
