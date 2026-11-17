@@ -6,14 +6,40 @@ import { AuthLayout } from "../components/PortalLayout";
 export function ResetPasswordPage() {
   const [password, setPassword] = useState("");
   const [ready, setReady] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // The recovery link lands here before Supabase has finished exchanging its
+    // token for a session — that exchange resolves asynchronously, after this
+    // effect's first getSession() check already returned null. Only
+    // onAuthStateChange sees the session once it actually lands.
+    let settled = false;
+
     supabase.auth.getSession().then(({ data }) => {
-      setReady(Boolean(data.session));
+      if (data.session) {
+        settled = true;
+        setReady(true);
+      }
     });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        settled = true;
+        setReady(true);
+      }
+    });
+
+    const timeout = window.setTimeout(() => {
+      if (!settled) setSessionExpired(true);
+    }, 10000);
+
+    return () => {
+      listener.subscription.unsubscribe();
+      window.clearTimeout(timeout);
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,6 +52,26 @@ export function ResetPasswordPage() {
     else setSuccess(true);
     setLoading(false);
   };
+
+  if (!ready && !success && sessionExpired) {
+    return (
+      <AuthLayout>
+        <div className="rounded-2xl border border-brand-navy/8 bg-white p-8 shadow-sm text-center">
+          <h1 className="font-display font-extrabold text-xl text-brand-navy">Link sudah tidak berlaku</h1>
+          <p className="mt-3 text-sm text-brand-navy/60 leading-relaxed">
+            Link reset password ini sudah kedaluwarsa atau sudah pernah dipakai. Minta link baru
+            lewat halaman lupa password.
+          </p>
+          <Link
+            to="/forgot-password"
+            className="mt-6 inline-block rounded-xl bg-brand-navy text-white font-bold px-6 py-3 text-sm"
+          >
+            Minta link baru
+          </Link>
+        </div>
+      </AuthLayout>
+    );
+  }
 
   if (!ready && !success) {
     return (
