@@ -190,27 +190,29 @@ serve(async (req) => {
       return jsonResponse({ status: "settlement", already_paid: true });
     }
 
-    const { data: paymentData, error: paymentError } = await supabaseAdmin
+    // A participant can end up with several payment attempts for one invoice (an
+    // earlier session expired in our own bookkeeping, a new one got created), and
+    // the money can still land against an OLDER attempt if the transfer was already
+    // in flight when the newer session was created. Checking only the most recent
+    // attempt (the previous behavior here) permanently misses that case, so check
+    // every unsettled attempt, oldest money first.
+    const { data: paymentRows, error: paymentError } = await supabaseAdmin
       .from("payments")
       .select("id,invoice_id,user_id,amount,currency,status,provider_reference_id")
       .eq("invoice_id", invoice.id)
       .eq("user_id", invoice.user_id)
       .eq("provider", "pivot")
       .not("provider_reference_id", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("created_at", { ascending: false });
     if (paymentError) return jsonResponse({ error: paymentError.message }, 500);
 
-    const payment = paymentData as Payment | null;
-    if (!payment) {
+    const payments = (paymentRows ?? []) as Payment[];
+    if (payments.length === 0) {
       return jsonResponse({ status: "pending", message: "Sesi pembayaran Pivot belum ditemukan" });
     }
-    if (payment.status === "settlement") {
-      return jsonResponse({ status: "settlement", already_paid: true });
-    }
-    if (!payment.provider_reference_id) {
-      return jsonResponse({ status: payment.status, message: "Referensi transaksi Pivot belum tersedia" });
+    const alreadySettled = payments.find((candidate) => candidate.status === "settlement");
+    if (alreadySettled) {
+      return jsonResponse({ status: "settlement", already_paid: true, payment_id: alreadySettled.id });
     }
 
     const baseUrl = (Deno.env.get("PIVOT_BASE_URL") || DEFAULT_BASE_URL).replace(/\/$/, "");
@@ -224,43 +226,60 @@ serve(async (req) => {
     }
 
     const token = await getAccessToken(baseUrl, clientId, clientSecret);
-    const response = await fetch(
-      `${baseUrl}/v2/payments/${encodeURIComponent(payment.provider_reference_id)}`,
-      { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } },
-    );
-    const payload = await readResponsePayload(response);
-    if (!response.ok) {
-      console.error("pivot-reconcile rejected:", JSON.stringify(payload));
-      return jsonResponse({ error: "Pivot belum dapat mengonfirmasi status transaksi" }, 502);
-    }
 
-    const status = mapPaymentStatus(payload);
-    const providerAmount = getPaymentAmount(payload);
-    if (status === "settlement") {
-      const amountMatches = providerAmount?.value === payment.amount && payment.amount === invoice.amount;
-      const currencyMatches =
-        providerAmount?.currency === payment.currency && payment.currency === invoice.currency;
-      if (!amountMatches || !currencyMatches) {
-        console.error("pivot-reconcile settlement mismatch", {
-          paymentId: payment.id,
-          expectedAmount: payment.amount,
-          expectedCurrency: payment.currency,
-          providerAmount,
-        });
-        return jsonResponse({ error: "Nominal transaksi Pivot tidak sesuai dengan tagihan" }, 409);
+    let lastStatus: string = payments[0].status;
+    let lastMessage: string | undefined;
+
+    for (const payment of payments) {
+      if (!payment.provider_reference_id) continue;
+
+      const response = await fetch(
+        `${baseUrl}/v2/payments/${encodeURIComponent(payment.provider_reference_id)}`,
+        { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } },
+      );
+      const payload = await readResponsePayload(response);
+      if (!response.ok) {
+        console.error("pivot-reconcile rejected:", payment.id, JSON.stringify(payload));
+        lastMessage = "Pivot belum dapat mengonfirmasi status salah satu transaksi";
+        continue;
       }
+
+      const status = mapPaymentStatus(payload);
+      const providerAmount = getPaymentAmount(payload);
+
+      if (status === "settlement") {
+        const amountMatches = providerAmount?.value === payment.amount && payment.amount === invoice.amount;
+        const currencyMatches =
+          providerAmount?.currency === payment.currency && payment.currency === invoice.currency;
+        if (!amountMatches || !currencyMatches) {
+          console.error("pivot-reconcile settlement mismatch", {
+            paymentId: payment.id,
+            expectedAmount: payment.amount,
+            expectedCurrency: payment.currency,
+            providerAmount,
+          });
+          lastMessage = "Nominal transaksi Pivot tidak sesuai dengan tagihan";
+          continue;
+        }
+
+        const { error: updateError } = await supabaseAdmin
+          .from("payments")
+          .update({ status, raw_payload: payload })
+          .eq("id", payment.id);
+        if (updateError) {
+          console.error("pivot-reconcile update failed:", updateError.message);
+          return jsonResponse({ error: updateError.message }, 500);
+        }
+
+        return jsonResponse({ status, payment_id: payment.id });
+      }
+
+      // Not this attempt — record its latest status and keep checking older ones.
+      await supabaseAdmin.from("payments").update({ status, raw_payload: payload }).eq("id", payment.id);
+      lastStatus = status;
     }
 
-    const { error: updateError } = await supabaseAdmin
-      .from("payments")
-      .update({ status, raw_payload: payload })
-      .eq("id", payment.id);
-    if (updateError) {
-      console.error("pivot-reconcile update failed:", updateError.message);
-      return jsonResponse({ error: updateError.message }, 500);
-    }
-
-    return jsonResponse({ status, payment_id: payment.id });
+    return jsonResponse({ status: lastStatus, message: lastMessage });
   } catch (error) {
     console.error("pivot-reconcile error:", error);
     return jsonResponse(
