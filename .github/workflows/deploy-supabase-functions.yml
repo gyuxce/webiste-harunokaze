@@ -38,3 +38,4 @@ jobs:
           npx supabase functions deploy pivot-webhook --project-ref "$SUPABASE_PROJECT_ID" --use-api --no-verify-jwt
           npx supabase functions deploy pivot-reconcile --project-ref "$SUPABASE_PROJECT_ID" --use-api
           npx supabase functions deploy refine-final-review --project-ref "$SUPABASE_PROJECT_ID" --use-api
+          npx supabase functions deploy notify-papikostik-completed --project-ref "$SUPABASE_PROJECT_ID" --use-api
